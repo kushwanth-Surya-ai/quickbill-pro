@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#04102B" />
 <title>QuickBill Pro — Bill in the app. Share on WhatsApp.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@600;800;900&family=Caveat:wght@700&family=Archivo:wdth,wght@125,700..900&display=swap" rel="stylesheet">
@@ -15,10 +16,12 @@
     --mono:ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
   }
   *{margin:0;padding:0;box-sizing:border-box}
-  html{scroll-behavior:auto}
+  html{scroll-behavior:auto;overflow-x:clip;-webkit-text-size-adjust:100%;text-size-adjust:100%}
   body{
     background:var(--bg); color:var(--text); font-family:var(--body);
     overflow-x:hidden; -webkit-font-smoothing:antialiased;
+    /* touch: no double-tap-zoom delay (the 3D phone is tappable), no grey tap flash */
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent;
   }
   ::selection{background:var(--accent);color:#06245C}
 
@@ -35,7 +38,8 @@
 
   /* ---------- Content layer ---------- */
   main{position:relative;z-index:3}
-  section{position:relative;min-height:100vh;padding:14vh 6vw;display:flex;align-items:center}
+  /* svh: the visible viewport with the mobile URL bar expanded — vh kept as fallback */
+  section{position:relative;min-height:100vh;min-height:100svh;padding:14vh 6vw;display:flex;align-items:center}
   .container{width:100%;max-width:1180px;margin:0 auto}
 
   .eyebrow{
@@ -55,7 +59,7 @@
   .phone-slot{display:none}
 
   /* ---------- Hero : text left, phone right ---------- */
-  #hero{min-height:100vh;align-items:center;justify-content:flex-start;text-align:left;padding-bottom:0}
+  #hero{min-height:100vh;min-height:100svh;align-items:center;justify-content:flex-start;text-align:left;padding-bottom:0}
   #hero .inner{opacity:0;transform:translateY(24px);width:min(48vw,560px)}
   #hero h1{margin:.6rem 0 .8rem}
   #hero .lede{margin:0}
@@ -220,7 +224,7 @@
        and re-prints itself as a WhatsApp text bill (scroll-scrubbed) ---------- */
   #deliver{display:block;min-height:240vh;padding:0}
   .d-pin{
-    position:sticky;top:0;min-height:100vh;overflow:hidden;
+    position:sticky;top:0;min-height:100vh;min-height:100svh;overflow:hidden;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     padding:9vh 6vw 5vh;
   }
@@ -247,7 +251,7 @@
   .d-bill .b-total{font-size:.7rem;font-weight:700}
   .d-bill .b-total b{color:#1A73E8}
   .d-phone{ /* the receiving phone — sized by height so it always fits the pin */
-    position:relative;z-index:6;height:min(58vh,560px);aspect-ratio:9/18.6;
+    position:relative;z-index:6;height:min(58svh,560px);aspect-ratio:9/18.6;
     border-radius:42px;padding:11px;
     background:linear-gradient(160deg,#26343f,#0d141a 60%,#1d2932);
     border:1px solid rgba(255,255,255,.14);
@@ -343,13 +347,14 @@
     transition:transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s, color .35s ease, border-color .35s ease}
   .btn.ghost:hover{transform:translateY(-2px);border-color:rgba(79,195,247,.5)}
   footer{
-    position:relative;z-index:3;text-align:center;padding:2.4rem 6vw 3rem;
+    position:relative;z-index:3;text-align:center;
+    padding:2.4rem 6vw calc(3rem + env(safe-area-inset-bottom,0px));
     color:var(--muted);font-family:var(--mono);font-size:.72rem;letter-spacing:.18em;
   }
 
   /* ---------- Section 9 : Glass Command Center — hologram metrics near the footer ---------- */
   #command-center{
-    position:fixed;left:50%;bottom:4.6rem;z-index:40;transform:translateX(-50%);
+    position:fixed;left:50%;bottom:calc(4.6rem + env(safe-area-inset-bottom,0px));z-index:40;transform:translateX(-50%);
     width:min(92vw,640px);display:flex;justify-content:center;gap:.9rem;
     pointer-events:none;opacity:0;visibility:hidden;
   }
@@ -482,7 +487,8 @@
 
   /* ---------- Dark mode toggle ---------- */
   #theme-toggle{
-    position:fixed;top:16px;right:16px;z-index:70;display:inline-flex;
+    position:fixed;z-index:70;display:inline-flex;
+    top:calc(16px + env(safe-area-inset-top,0px));right:calc(16px + env(safe-area-inset-right,0px));
     align-items:center;gap:.65rem;cursor:pointer;
     font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;
     color:var(--text);background:rgba(10,27,64,.6);border:1px solid var(--glass-border);
@@ -552,13 +558,13 @@
     .stats{grid-template-columns:1fr;max-width:420px}
     section{padding:12vh 7vw}
     /* command center: tighter chips so all three fit on one row */
-    #command-center{gap:.55rem;bottom:2.4rem}
+    #command-center{gap:.55rem;bottom:calc(2.4rem + env(safe-area-inset-bottom,0px))}
     .cc-panel{padding:.65rem .8rem .75rem;border-radius:13px}
     .cc-label{font-size:.5rem;letter-spacing:.16em}
     .cc-value{font-size:1.02rem;margin-top:.25rem}
     /* the phone guides the tour — it parks in these slots and its screen
        renders each section's visual right at its place in the page */
-    .phone-slot{display:block;height:58vh}
+    .phone-slot{display:block;height:58svh}
     #hero .phone-slot{height:50svh}
     /* the orbit, receipt & GST machine render at phone size too —
        the phone guide skips those stops instead of mirroring them */
@@ -573,7 +579,7 @@
     #deliver{min-height:220vh}
     .d-pin{padding:7vh 6vw 4vh}
     #deliver header{margin-bottom:1.4rem}
-    .d-phone{height:min(52vh,480px)}
+    .d-phone{height:min(52svh,480px)}
     .d-bill{width:160px;margin-left:-80px}
     /* hero: headline up top, the phone drops into the space below it */
     #hero{align-items:flex-start;justify-content:center;text-align:center;padding:10svh 7vw 0;min-height:100svh}
@@ -593,7 +599,7 @@
 
   /* launch-soon toast — shown when a CTA button is clicked */
   #launch-toast{
-    position:fixed;left:50%;bottom:2.2rem;transform:translate(-50%,1.4rem);
+    position:fixed;left:50%;bottom:calc(2.2rem + env(safe-area-inset-bottom,0px));transform:translate(-50%,1.4rem);
     background:var(--glass);border:1px solid var(--glass-border);border-radius:999px;
     backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     padding:.85rem 1.6rem;box-shadow:0 24px 60px rgba(0,0,0,.45);
