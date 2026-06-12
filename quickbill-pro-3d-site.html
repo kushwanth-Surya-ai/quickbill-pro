@@ -802,8 +802,9 @@ const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 ============================================================ */
 const canvas = document.getElementById('gl');
 const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3));
 renderer.setSize(window.innerWidth, window.innerHeight);
+const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(38, window.innerWidth/window.innerHeight, .1, 100);
@@ -860,11 +861,12 @@ const glass = new THREE.Mesh(
 glass.position.z = PD/2 + .037;
 phone.add(glass);
 
-/* screen — canvas texture */
-const sc = document.createElement('canvas'); sc.width = 512; sc.height = 1024;
+/* screen — canvas texture (2x backing store; draw code keeps 512×1024 coords) */
+const sc = document.createElement('canvas'); sc.width = 1024; sc.height = 2048;
 const sx = sc.getContext('2d');
+sx.scale(2, 2);
 const screenTex = new THREE.CanvasTexture(sc);
-screenTex.anisotropy = 4;
+screenTex.anisotropy = MAX_ANISO;
 const SW = PW-.22, SH = PH-.34;
 const screenGeo = new THREE.ShapeGeometry(roundedRect(SW, SH, .3), 24);
 /* ShapeGeometry UVs are raw shape coords — normalize to 0..1 so the texture fills the screen */
@@ -896,8 +898,9 @@ phone.add(notch);
 
 /* back emblem — the ₹ mark glows on the phone's back, seen when it
    barrel-flips while travelling between sections on mobile */
-const bc = document.createElement('canvas'); bc.width = bc.height = 256;
+const bc = document.createElement('canvas'); bc.width = bc.height = 512;
 const bcx = bc.getContext('2d');
+bcx.scale(2, 2); /* draw code keeps 256-space coords */
 const bglow = bcx.createRadialGradient(128,128,16,128,128,124);
 bglow.addColorStop(0,'rgba(255,179,0,.5)'); bglow.addColorStop(1,'rgba(255,179,0,0)');
 bcx.fillStyle = bglow; bcx.fillRect(0,0,256,256);
@@ -930,92 +933,59 @@ scene.add(shadow);
 
 scene.add(phone);
 
-/* ---------- iPad — the finale tablet that handwrites the pitch ---------- */
-const pad = new THREE.Group();
-const TW=5.7, TH=4.15, TD=.16;
-const padBodyGeo = new THREE.ExtrudeGeometry(roundedRect(TW, TH, .34), {
-  depth:TD, bevelEnabled:true, bevelThickness:.028, bevelSize:.028, bevelSegments:4, curveSegments:24
-});
-padBodyGeo.translate(0,0,-TD/2);
-const padBodyMat = new THREE.MeshStandardMaterial({color:0xDADCDF, metalness:.9, roughness:.34, transparent:true});
-pad.add(new THREE.Mesh(padBodyGeo, padBodyMat));
-
-const pc = document.createElement('canvas'); pc.width = 1024; pc.height = 768;
-const pcx = pc.getContext('2d');
-const padTex = new THREE.CanvasTexture(pc); padTex.anisotropy = 4;
-const padScreenGeo = new THREE.ShapeGeometry(roundedRect(TW-.26, TH-.26, .24), 24);
-padScreenGeo.computeBoundingBox();
-{
-  const bb = padScreenGeo.boundingBox, uv = padScreenGeo.attributes.uv;
-  for(let i=0;i<uv.count;i++){
-    uv.setXY(i,
-      (uv.getX(i)-bb.min.x)/(bb.max.x-bb.min.x),
-      (uv.getY(i)-bb.min.y)/(bb.max.y-bb.min.y)
-    );
-  }
-  uv.needsUpdate = true;
-}
-const padScreenMat = new THREE.MeshBasicMaterial({map:padTex, toneMapped:false, transparent:true});
-const padScreen = new THREE.Mesh(padScreenGeo, padScreenMat);
-padScreen.position.z = TD/2 + .034;
-pad.add(padScreen);
-const padCamMat = new THREE.MeshStandardMaterial({color:0x111418, roughness:.3, transparent:true});
-const padCam = new THREE.Mesh(new THREE.CircleGeometry(.035, 20), padCamMat);
-padCam.position.set(0, TH/2-.082, TD/2+.036);
-pad.add(padCam);
-pad.visible = false;
-scene.add(pad);
-
+/* ---------- finale pitch — the phone rises again in LANDSCAPE and
+   handwrites the pitch on its own screen, line by line ---------- */
 /* handwriting state — w: write progress, a: ink alpha, u: underline */
-const padState = {w1:0, a1:1, w2:0, u:0};
-const padProxy = {y:-6, rx:-.55, scale:.86, op:0};
-if(document.fonts && document.fonts.load) document.fonts.load('700 118px Caveat').catch(()=>{});
+const pitchState = {w1:0, a1:1, w2:0, u:0};
+if(document.fonts && document.fonts.load) document.fonts.load('700 104px Caveat').catch(()=>{});
 
-function writeLines(lines, colors, prog, alpha, yStart, lineH){
+/* the screen canvas is portrait (512×1024) — pitch text is drawn inside a
+   1024×512 frame rotated 90° so it reads upright on the sideways phone */
+function pitchLines(lines, colors, prog, alpha, yStart, lineH){
   if(alpha <= 0 || prog <= 0) return;
-  pcx.save();
-  pcx.globalAlpha = alpha;
-  pcx.font = '700 118px Caveat, cursive';
-  pcx.textAlign = 'left';
+  sx.save();
+  sx.globalAlpha *= alpha;
+  sx.font = '700 104px Caveat, cursive';
+  sx.textAlign = 'left';
   const total = lines.reduce((a,l)=>a+l.length, 0);
   let consumed = 0;
   lines.forEach((line,i)=>{
     const f = Math.max(0, Math.min(1, (prog*total - consumed)/line.length));
     consumed += line.length;
     if(f <= 0) return;
-    const w = pcx.measureText(line).width;
+    const w = sx.measureText(line).width;
     const x0 = (1024-w)/2, y = yStart + i*lineH;
-    pcx.save(); /* the ink wipes on left → right, like a pen stroke */
-    pcx.beginPath(); pcx.rect(x0-8, y-126, w*f+16, 168); pcx.clip();
-    pcx.fillStyle = colors[i];
-    pcx.fillText(line, x0, y);
-    pcx.restore();
+    sx.save(); /* the ink wipes on left → right, like a pen stroke */
+    sx.beginPath(); sx.rect(x0-8, y-112, w*f+16, 150); sx.clip();
+    sx.fillStyle = colors[i];
+    sx.fillText(line, x0, y);
+    sx.restore();
     if(f < 1){ /* pen nib riding the ink edge */
-      pcx.fillStyle = colors[i];
-      pcx.beginPath(); pcx.arc(x0 + w*f + 7, y-20, 6, 0, 7); pcx.fill();
+      sx.fillStyle = colors[i];
+      sx.beginPath(); sx.arc(x0 + w*f + 7, y-18, 6, 0, 7); sx.fill();
     }
   });
-  pcx.restore();
+  sx.restore();
 }
-function drawPad(){
-  const W=1024, H=768;
-  pcx.clearRect(0,0,W,H);
-  pcx.fillStyle = '#FCFCFA'; pcx.fillRect(0,0,W,H);
-  const g = pcx.createRadialGradient(W/2,H/2,180,W/2,H/2,720);
+function drawPitch(){
+  sx.save();
+  sx.translate(512, 0); sx.rotate(Math.PI/2); /* landscape frame: 1024×512 */
+  sx.fillStyle = '#FCFCFA'; sx.fillRect(0, 0, 1024, 512);
+  const g = sx.createRadialGradient(512,256,120,512,256,560);
   g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(13,43,91,.06)');
-  pcx.fillStyle = g; pcx.fillRect(0,0,W,H);
-  writeLines(['Make your business','easier at billing'], ['#0D2B5B','#0D2B5B'], padState.w1, padState.a1, 290, 168);
-  if(padState.a1 < .05){
-    writeLines(['Switch to','QuickBill Pro now'], ['#0D2B5B','#1a73e8'], padState.w2, 1, 290, 168);
-    if(padState.u > 0){
-      pcx.font = '700 118px Caveat, cursive';
-      const w = pcx.measureText('QuickBill Pro now').width;
-      const x0 = (W-w)/2, y = 290+168+30;
-      pcx.strokeStyle = '#ffb300'; pcx.lineWidth = 8; pcx.lineCap = 'round';
-      pcx.beginPath(); pcx.moveTo(x0, y); pcx.lineTo(x0 + w*padState.u, y); pcx.stroke();
+  sx.fillStyle = g; sx.fillRect(0,0,1024,512);
+  pitchLines(['Make your business','easier at billing'], ['#0D2B5B','#0D2B5B'], pitchState.w1, pitchState.a1, 196, 150);
+  if(pitchState.a1 < .05){
+    pitchLines(['Switch to','QuickBill Pro now'], ['#0D2B5B','#1a73e8'], pitchState.w2, 1, 196, 150);
+    if(pitchState.u > 0){
+      sx.font = '700 104px Caveat, cursive';
+      const w = sx.measureText('QuickBill Pro now').width;
+      const x0 = (1024-w)/2, y = 196+150+26;
+      sx.strokeStyle = '#ffb300'; sx.lineWidth = 8; sx.lineCap = 'round';
+      sx.beginPath(); sx.moveTo(x0, y); sx.lineTo(x0 + w*pitchState.u, y); sx.stroke();
     }
   }
-  padTex.needsUpdate = true;
+  sx.restore();
 }
 
 /* ============================================================
@@ -1328,7 +1298,7 @@ function drawFinal(t){
   sx.fillText('or book a demo below', 256, 700);
   sx.textAlign='left';
 }
-const sectionScreens = {welcome:drawWelcome, arch:drawArch, tools:drawTools, gst:drawGst, machine:drawMachine, impact:drawImpact, final:drawFinal};
+const sectionScreens = {welcome:drawWelcome, arch:drawArch, tools:drawTools, gst:drawGst, machine:drawMachine, impact:drawImpact, final:drawFinal, pitch:drawPitch};
 
 function drawScreen(t){
   const W=512,H=1024;
@@ -1637,26 +1607,24 @@ ScrollTrigger.create({
   onUpdate(self){ if(isMobile()) return; proxy.glOpacity = 1 - self.progress; }
 });
 /* Final: the phone takes a bow — returns to centre, flips and plummets —
-   and a paper-white iPad floats up to handwrite the pitch, then vanishes */
+   then rises again ROTATED TO LANDSCAPE and handwrites the pitch on its
+   own screen, line by line, before bowing out */
 let finaleTl = null;
 let finaleActive = false; /* while true the mobile slot guide hands the phone to the finale */
-/* the iPad is 5.7 world-units wide — fit it inside narrow viewports */
-function padFitScale(){
-  return Math.min(1, visWorldH()*camera.aspect*.92/TW);
+/* sideways, the phone is PH world-units wide — fit it inside narrow viewports */
+function pitchFitScale(){
+  return Math.min(1, visWorldH()*camera.aspect*.86/PH);
 }
 function buildFinale(){
-  const padScale = padFitScale();
+  const pitchScale = pitchFitScale();
   return gsap.timeline({paused:true,
     onStart(){
-      pad.visible = true;
       proxy.rx = 0; proxy.rz = 0;
       /* unwind the mobile barrel-flips to the nearest upright turn */
       proxy.ry = proxy.ry % (Math.PI*2);
       if(proxy.ry > Math.PI) proxy.ry -= Math.PI*2;
-      padState.w1 = 0; padState.a1 = 1; padState.w2 = 0; padState.u = 0;
-      padProxy.op = 0;
-    },
-    onComplete(){ pad.visible = false; }})
+      pitchState.w1 = 0; pitchState.a1 = 1; pitchState.w2 = 0; pitchState.u = 0;
+    }})
     /* phone returns to centre stage */
     .to(proxy, {x:0, y:.9, scale:.8, glOpacity:1, duration:.7, ease:'power2.out'}, 0)
     .to(proxy, {ry:0, duration:.7, ease:'power1.inOut'}, 0)
@@ -1664,16 +1632,22 @@ function buildFinale(){
     .to(proxy, {rx:-Math.PI*2.5, duration:1.2, ease:'power2.in'}, .95)
     .to(proxy, {y:-9, duration:1.2, ease:'power3.in'}, .95)
     .to(proxy, {glOpacity:0, duration:.25}, 1.85)
-    /* the iPad floats up */
-    .fromTo(padProxy, {y:-6, rx:-.55, scale:padScale*.86, op:0},
-                      {y:1.4, rx:-.05, scale:padScale, op:1, duration:1.1, ease:'power3.out'}, 2.0)
+    /* off-screen costume change: snap upright and load the pitch screen */
+    .add(()=>{
+      phone.rotation.x = 0; phone.rotation.y = 0; phone.rotation.z = 0;
+      proxy.rx = 0; proxy.ry = 0;
+      setMode('pitch');
+    }, 2.05)
+    .set(proxy, {scale:pitchScale*.86}, 2.05)
+    /* ...and the phone rises again — turning sideways as it comes up */
+    .to(proxy, {y:1.55, rz:Math.PI/2, scale:pitchScale, glOpacity:1, duration:1.1, ease:'power3.out'}, 2.15)
     /* handwriting — line one, then the switch pitch */
-    .fromTo(padState, {w1:0}, {w1:1, duration:2.4, ease:'none'}, 2.9)
-    .to(padState, {a1:0, duration:.45, ease:'power1.in'}, 6.0)
-    .fromTo(padState, {w2:0}, {w2:1, duration:2.1, ease:'none'}, 6.5)
-    .fromTo(padState, {u:0}, {u:1, duration:.55, ease:'power2.out'}, 8.65)
-    /* hold, then the iPad bows out */
-    .to(padProxy, {op:0, y:-1.6, rx:.55, scale:.8, duration:.95, ease:'power2.in'}, 10.4);
+    .fromTo(pitchState, {w1:0}, {w1:1, duration:2.4, ease:'none'}, 3.1)
+    .to(pitchState, {a1:0, duration:.45, ease:'power1.in'}, 6.2)
+    .fromTo(pitchState, {w2:0}, {w2:1, duration:2.1, ease:'none'}, 6.7)
+    .fromTo(pitchState, {u:0}, {u:1, duration:.55, ease:'power2.out'}, 8.85)
+    /* hold, then the phone bows out upward */
+    .to(proxy, {glOpacity:0, y:3.4, duration:.95, ease:'power2.in'}, 10.6);
 }
 ScrollTrigger.create({
   /* keyed to the section's BOTTOM — the finale only plays once the end
@@ -1681,11 +1655,12 @@ ScrollTrigger.create({
   trigger:'#final', start:'bottom 110%',
   onEnter(){
     finaleActive = true;
-    if(reduced){ /* static finale: just show the written pitch */
-      pad.visible = true;
-      padProxy.y = 1.4; padProxy.rx = 0; padProxy.scale = padFitScale(); padProxy.op = 1;
-      padState.w1 = 0; padState.a1 = 0; padState.w2 = 1; padState.u = 1;
-      proxy.glOpacity = 0;
+    if(reduced){ /* static finale: the landscape phone with the written pitch */
+      proxy.x = 0; proxy.y = 1.55; proxy.rx = 0; proxy.ry = 0; proxy.rz = Math.PI/2;
+      proxy.scale = pitchFitScale(); proxy.glOpacity = 1;
+      phone.rotation.set(0, 0, Math.PI/2);
+      pitchState.w1 = 0; pitchState.a1 = 0; pitchState.w2 = 1; pitchState.u = 1;
+      screenState.mode = 'pitch'; screenState.power = 1;
       return;
     }
     /* rebuild each visit — on mobile the entry pose and fit scale vary */
@@ -1696,17 +1671,16 @@ ScrollTrigger.create({
   onLeaveBack(){
     finaleActive = false;
     if(finaleTl) finaleTl.pause(0);
-    pad.visible = false;
-    padProxy.op = 0;
     phone.rotation.x = 0;
     if(isMobile()){
-      /* the slot guide retakes the phone on the next frame */
-      proxy.rx = 0; proxy.glOpacity = 1;
+      /* the slot guide retakes the phone (pose + screen) on the next frame */
+      proxy.rx = 0; proxy.rz = 0; proxy.glOpacity = 1;
       return;
     }
-    /* park the phone back in its mid-page pose */
+    /* park the phone back in its mid-page pose, portrait, chat screen */
     proxy.x = -2.6; proxy.y = 0; proxy.ry = .48; proxy.rx = 0; proxy.rz = 0;
     proxy.scale = .92; proxy.glOpacity = 0;
+    setMode('chat');
   }
 });
 gsap.to('#stage-glow', {opacity:1, scrollTrigger:{trigger:'#final', start:'bottom 140%', end:'bottom 105%', scrub:1}});
@@ -1785,7 +1759,7 @@ document.querySelectorAll('[data-count]').forEach(el=>{
   if(!mcanvas) return;
   const stage = mcanvas.parentElement;
   const mrenderer = new THREE.WebGLRenderer({canvas:mcanvas, antialias:true, alpha:true});
-  mrenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  mrenderer.setPixelRatio(Math.min(window.devicePixelRatio, 3));
   const mscene = new THREE.Scene();
   const mcam = new THREE.PerspectiveCamera(35, 1.6, .1, 60);
   mcam.position.set(0, .7, 11.5);
@@ -1798,13 +1772,15 @@ document.querySelectorAll('[data-count]').forEach(el=>{
 
   /* single-line label → transparent texture */
   function labelTex(txt, color, big){
-    const c = document.createElement('canvas'); c.width = 512; c.height = big ? 256 : 128;
+    const H = big ? 256 : 128; /* logical space; backing store is 2x */
+    const c = document.createElement('canvas'); c.width = 1024; c.height = H*2;
     const g = c.getContext('2d');
+    g.scale(2, 2);
     g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillStyle = color;
     g.font = '700 ' + (big ? 120 : 58) + 'px ui-monospace, monospace';
-    g.fillText(txt, 256, c.height/2 + (big ? 8 : 4));
-    const tx = new THREE.CanvasTexture(c); tx.anisotropy = 4; return tx;
+    g.fillText(txt, 256, H/2 + (big ? 8 : 4));
+    const tx = new THREE.CanvasTexture(c); tx.anisotropy = mrenderer.capabilities.getMaxAnisotropy(); return tx;
   }
   /* pill-shaped chip with a printed label */
   function chip(wd, ht, bodyColor, txt, txtColor){
@@ -2116,18 +2092,7 @@ function tick(){
   shadow.position.x = phone.position.x;
   shadow.material.opacity = lerp(shadow.material.opacity, .55*proxy.glOpacity*(1-Math.min(1,Math.abs(phone.position.y)*.4)), .1);
 
-  canvas.style.opacity = Math.max(proxy.glOpacity, padProxy.op);
-
-  /* finale iPad */
-  if(pad.visible){
-    pad.position.set(0, padProxy.y + (reduced?0:Math.sin(t*.0012)*.05), .5);
-    pad.rotation.x = padProxy.rx;
-    pad.scale.setScalar(padProxy.scale);
-    padBodyMat.opacity = padProxy.op;
-    padScreenMat.opacity = padProxy.op;
-    padCamMat.opacity = padProxy.op;
-    drawPad();
-  }
+  canvas.style.opacity = proxy.glOpacity;
 
   /* particles drift */
   if(!reduced){
