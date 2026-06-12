@@ -16,7 +16,9 @@
     --mono:ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
   }
   *{margin:0;padding:0;box-sizing:border-box}
-  html{scroll-behavior:auto;overflow-x:clip;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  /* NOTE: keep html overflow visible — body's overflow-x:hidden then propagates
+     to the viewport; html overflow-x:clip/hidden would break position:sticky (#deliver) */
+  html{scroll-behavior:auto;-webkit-text-size-adjust:100%;text-size-adjust:100%}
   body{
     background:var(--bg); color:var(--text); font-family:var(--body);
     overflow-x:hidden; -webkit-font-smoothing:antialiased;
@@ -978,6 +980,9 @@
 (function(){
 "use strict";
 gsap.registerPlugin(ScrollTrigger);
+/* Android/iOS fire resize as the URL bar collapses mid-scroll — don't let
+   ScrollTrigger re-measure the whole page on every toggle */
+ScrollTrigger.config({ignoreMobileResize:true});
 /* a reload always restarts the story from the top — the sunrise splash
    and the phone's whole journey assume a hero start. The browser may
    restore the old position after this script runs, so reset again on
@@ -1772,6 +1777,8 @@ if(reduced){
     });
   /* click anywhere to skip */
   splash.addEventListener('click', ()=> splashTl.progress(1));
+  /* iOS still rubber-band-scrolls under overflow:hidden — block it while the splash plays */
+  splash.addEventListener('touchmove', e=> e.preventDefault(), {passive:false});
 }
 
 /* the billing demo starts when the user scrolls to the story section
@@ -2601,10 +2608,17 @@ function tick(){
 drawScreen(0);
 tick();
 
+let lastVw = window.innerWidth;
 window.addEventListener('resize', ()=>{
   fitCamera();
   if(window.scrollY < 60){ proxy.x = heroBaseX(); proxy.y = heroBaseY(); proxy.scale = heroBaseScale(); }
-  ScrollTrigger.refresh();
+  /* mobile URL-bar show/hide only changes the height — a full re-measure
+     mid-scroll makes the page visibly jump. Refresh on real resizes
+     (rotation, window drag) where the width moves too */
+  if(window.innerWidth !== lastVw){
+    lastVw = window.innerWidth;
+    ScrollTrigger.refresh();
+  }
 });
 })();
 
