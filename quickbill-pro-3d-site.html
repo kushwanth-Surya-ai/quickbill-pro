@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>QuickBill Pro — Bill in the app. Share on WhatsApp.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@600;800;900&family=Caveat:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@600;800;900&family=Caveat:wght@700&family=Archivo:wdth,wght@125,700..900&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#04102B; --surface:#0A1B40; --accent:#4FC3F7; --gold:#FFB300; --text:#F2F7FF; --muted:#9FB3D8;
@@ -169,7 +169,7 @@
   .receipt{
     font-family:var(--mono);background:#F6F3EA;color:#1d1d1b;
     width:min(360px,100%);margin:0 auto;padding:1.7rem 1.5rem 2.1rem;
-    position:relative;transform:rotate(-1.6deg);
+    position:relative;z-index:3;transform:rotate(-1.6deg); /* the journey bill (z:2) tucks in behind */
     box-shadow:0 36px 90px rgba(0,0,0,.65), 0 0 60px rgba(79,195,247,.07);
   }
   .receipt::after{ /* torn zigzag bottom edge */
@@ -193,6 +193,107 @@
     font-size:.56rem;font-weight:700;letter-spacing:.14em;color:#1A73E8;
     border:1.6px solid #1A73E8;border-radius:6px;padding:.28rem .5rem;opacity:.85;
   }
+  /* ---------- The bill's journey — a paper bill drops from the phone,
+       rides the arch stack, rests on the orbit sun, tucks behind the receipt
+       (position driven per-frame by the script) ---------- */
+  #journey-bill{
+    position:fixed;left:0;top:0;z-index:2;width:124px;opacity:0;
+    pointer-events:none;will-change:transform,opacity;
+    font-family:var(--mono);background:#F6F3EA;color:#1d1d1b;
+    padding:.55rem .55rem .7rem;box-shadow:0 18px 44px rgba(0,0,0,.5);
+  }
+  #journey-bill::after{ /* torn zigzag bottom edge */
+    content:'';position:absolute;left:0;right:0;bottom:-7px;height:8px;
+    background:
+      linear-gradient(45deg, transparent 33.333%, #F6F3EA 33.333%, #F6F3EA 66.667%, transparent 66.667%),
+      linear-gradient(-45deg, transparent 33.333%, #F6F3EA 33.333%, #F6F3EA 66.667%, transparent 66.667%);
+    background-size:8px 16px;background-position:0 -8px;
+  }
+  #journey-bill .b-head{text-align:center;font-weight:700;font-size:.5rem;letter-spacing:.08em}
+  #journey-bill hr{border:none;border-top:1px dashed #b8b4a6;margin:.32rem 0}
+  #journey-bill .b-row{display:flex;justify-content:space-between;font-size:.46rem;line-height:1.9}
+  #journey-bill .b-total{font-size:.56rem;font-weight:700}
+  #journey-bill .b-total b{color:#1A73E8}
+  @media (prefers-reduced-motion:reduce){ #journey-bill{display:none} }
+
+  /* ---------- Section 5a : deliver — the paper bill sinks into the phone
+       and re-prints itself as a WhatsApp text bill (scroll-scrubbed) ---------- */
+  #deliver{display:block;min-height:240vh;padding:0}
+  .d-pin{
+    position:sticky;top:0;min-height:100vh;overflow:hidden;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:9vh 6vw 5vh;
+  }
+  #deliver header{text-align:center;margin-bottom:2rem}
+  #deliver .lede{margin:0 auto}
+  .d-stage{position:relative;display:flex;justify-content:center}
+  .d-bill{ /* the descending paper bill */
+    position:absolute;left:50%;top:0;width:190px;margin-left:-95px;z-index:5;
+    opacity:0;will-change:transform,clip-path;
+    font-family:var(--mono);background:#F6F3EA;color:#1d1d1b;
+    padding:.8rem .75rem .95rem;box-shadow:0 24px 60px rgba(0,0,0,.55);
+  }
+  .d-bill::after{
+    content:'';position:absolute;left:0;right:0;bottom:-9px;height:10px;
+    background:
+      linear-gradient(45deg, transparent 33.333%, #F6F3EA 33.333%, #F6F3EA 66.667%, transparent 66.667%),
+      linear-gradient(-45deg, transparent 33.333%, #F6F3EA 33.333%, #F6F3EA 66.667%, transparent 66.667%);
+    background-size:10px 20px;background-position:0 -10px;
+  }
+  .d-bill .b-head{text-align:center;font-weight:700;font-size:.62rem;letter-spacing:.08em}
+  .d-bill .b-sub{display:block;text-align:center;font-weight:400;font-size:.5rem;color:#6c6a62;margin-top:.2rem}
+  .d-bill hr{border:none;border-top:1.2px dashed #b8b4a6;margin:.45rem 0}
+  .d-bill .b-row{display:flex;justify-content:space-between;font-size:.56rem;line-height:2}
+  .d-bill .b-total{font-size:.7rem;font-weight:700}
+  .d-bill .b-total b{color:#1A73E8}
+  .d-phone{ /* the receiving phone — sized by height so it always fits the pin */
+    position:relative;z-index:6;height:min(58vh,560px);aspect-ratio:9/18.6;
+    border-radius:42px;padding:11px;
+    background:linear-gradient(160deg,#26343f,#0d141a 60%,#1d2932);
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 40px 110px rgba(0,0,0,.6), inset 0 0 16px rgba(0,0,0,.6);
+  }
+  .d-phone::before{ /* notch */
+    content:'';position:absolute;top:11px;left:50%;transform:translateX(-50%);
+    width:34%;height:20px;border-radius:0 0 13px 13px;background:#0d141a;z-index:3;
+  }
+  .d-scan{ /* conversion glow where the bill enters the phone */
+    position:absolute;left:5%;right:5%;top:-2px;height:3px;border-radius:3px;opacity:0;
+    background:linear-gradient(90deg,transparent,var(--accent),transparent);
+    box-shadow:0 0 16px var(--accent), 0 0 44px var(--accent);
+  }
+  .d-screen{
+    position:absolute;inset:11px;border-radius:32px;overflow:hidden;
+    background:#0B141A;display:flex;flex-direction:column;
+  }
+  .d-wa-head{display:flex;align-items:center;gap:.55rem;padding:2rem .8rem .6rem;background:#202C33}
+  .d-ava{
+    width:28px;height:28px;border-radius:50%;flex:none;background:#00A884;color:#fff;
+    display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:.74rem;
+  }
+  .d-who{display:flex;flex-direction:column;line-height:1.3;min-width:0}
+  .d-who b{font-size:.68rem;color:#E9EDEF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .d-who i{font-style:normal;font-family:var(--mono);font-size:.5rem;color:#8696A0}
+  .d-chat{flex:1;padding:.85rem .65rem;overflow:hidden}
+  .d-day{
+    display:block;width:max-content;margin:0 auto .8rem;font-family:var(--mono);
+    font-size:.5rem;letter-spacing:.1em;color:#8696A0;background:#182229;
+    padding:.28rem .6rem;border-radius:8px;
+  }
+  .d-msg{ /* the bill, reborn as a WhatsApp message */
+    margin-left:auto;width:90%;background:#005C4B;border-radius:10px 2px 10px 10px;
+    padding:.6rem .65rem .45rem;font-family:var(--mono);color:#E9EDEF;
+    box-shadow:0 2px 8px rgba(0,0,0,.4);will-change:clip-path,transform;
+  }
+  .d-msg b{display:block;font-size:.58rem;letter-spacing:.05em;margin-bottom:.3rem}
+  .d-msg .d-line{display:block;font-size:.54rem;line-height:1.8}
+  .d-msg .d-line.dim{color:rgba(233,237,239,.62)}
+  .d-msg .d-sum{display:block;font-size:.64rem;font-weight:700;margin-top:.3rem}
+  .d-meta{display:flex;justify-content:flex-end;align-items:center;gap:.3rem;font-size:.48rem;color:rgba(233,237,239,.6);margin-top:.4rem}
+  .d-ticks{font-style:normal;color:rgba(233,237,239,.55);letter-spacing:-.1em;transition:color .4s}
+  .d-ticks.read{color:#53BDEB} /* turns blue once the bill is fully in */
+  body.light .d-phone{box-shadow:0 34px 90px rgba(0,0,0,.35), inset 0 0 16px rgba(0,0,0,.6)}
+
   /* ---------- Section 5b : the GST machine — 3-D split visualization ---------- */
   #machine{flex-direction:column;justify-content:center;text-align:center}
   .machine-stage{width:min(900px,100%);margin:1.1rem auto 0}
@@ -297,7 +398,8 @@
   /* ---------- Surya AI sunrise splash ---------- */
   #splash{
     position:fixed;inset:0;z-index:60;overflow:hidden;cursor:pointer;
-    background:#FFFFFF;
+    /* stage 1 wears the Surya AI brand charcoal (matches the banner); the timeline whitens it for QuickBill */
+    background:#191A1E;
   }
   #splash .splash-sky{
     position:absolute;inset:0;opacity:0;
@@ -317,7 +419,7 @@
   #splash .splash-topline>*{grid-area:1/1;align-self:center}
   #splash .splash-eyebrow{
     font-family:var(--mono);font-size:.62rem;letter-spacing:.34em;text-transform:uppercase;
-    color:rgba(13,43,91,.6);opacity:0;
+    color:rgba(238,226,206,.72);opacity:0;
   }
   /* company credit — takes the top line when the mark flips, with a gold highlight sweep */
   #splash .splash-presents{
@@ -334,7 +436,7 @@
   #splash .splash-presents em{font-style:normal;color:#FFB300}
   /* the brand mark is a two-faced card — Surya AI on the front, it flips to QuickBill Pro */
   #splash .splash-flip{width:132px;height:132px;opacity:0;
-    filter:drop-shadow(0 14px 38px rgba(13,71,161,.45))}
+    filter:drop-shadow(0 14px 38px rgba(216,138,24,.35))}
   #splash .flip-inner{position:relative;width:100%;height:100%;transform-style:preserve-3d}
   #splash .splash-logo{position:absolute;inset:0;width:100%;height:100%;display:block;
     backface-visibility:hidden;-webkit-backface-visibility:hidden}
@@ -346,7 +448,12 @@
     font-family:'Inter',var(--display);font-weight:900;letter-spacing:-.035em;line-height:1;
     font-size:clamp(3.2rem,9vw,6.4rem);
   }
-  #splash .splash-name-surya{font-size:clamp(2.1rem,6vw,4.2rem);color:#0D2B5B}
+  /* the Surya wordmark wears the brand's expanded grotesque — Archivo at 125% width, cream on charcoal */
+  #splash .splash-name-surya{
+    font-family:'Archivo',var(--display);font-weight:900;letter-spacing:-.01em;
+    font-stretch:125%;font-variation-settings:'wdth' 125;
+    font-size:clamp(1.9rem,5.4vw,3.8rem);color:#EEE2CE;
+  }
   #splash .splash-name-surya .ai-word{
     background:linear-gradient(105deg,#ffe9b0 0%,#ffd54f 45%,#ffb300 100%);
     background-size:220% 100%;background-position:100% 0;
@@ -461,6 +568,13 @@
     /* arch: the text stack itself shows on mobile (falls in from the section above) */
     #arch .phone-slot{display:none}
     .stack{margin-top:.5rem}
+    /* the bill's journey & WhatsApp delivery, phone-sized */
+    #journey-bill{width:100px;padding:.45rem .45rem .6rem}
+    #deliver{min-height:220vh}
+    .d-pin{padding:7vh 6vw 4vh}
+    #deliver header{margin-bottom:1.4rem}
+    .d-phone{height:min(52vh,480px)}
+    .d-bill{width:160px;margin-left:-80px}
     /* hero: headline up top, the phone drops into the space below it */
     #hero{align-items:flex-start;justify-content:center;text-align:center;padding:10svh 7vw 0;min-height:100svh}
     #hero .inner{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:0;width:100%}
@@ -475,6 +589,23 @@
   }
   @media (prefers-reduced-motion: reduce){
     .pipe i,.scroll-cue::after{animation:none}
+  }
+
+  /* launch-soon toast — shown when a CTA button is clicked */
+  #launch-toast{
+    position:fixed;left:50%;bottom:2.2rem;transform:translate(-50%,1.4rem);
+    background:var(--glass);border:1px solid var(--glass-border);border-radius:999px;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    padding:.85rem 1.6rem;box-shadow:0 24px 60px rgba(0,0,0,.45);
+    color:var(--text);font-size:.95rem;display:flex;align-items:center;gap:.65rem;
+    opacity:0;pointer-events:none;transition:opacity .35s ease,transform .35s ease;
+    z-index:99;white-space:nowrap;
+  }
+  #launch-toast.show{opacity:1;transform:translate(-50%,0)}
+  #launch-toast .dot{width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 14px var(--gold)}
+  #launch-toast b{color:var(--accent);font-weight:600}
+  @media (max-width:560px){
+    #launch-toast{white-space:normal;text-align:center;width:max-content;max-width:86vw;border-radius:18px}
   }
 </style>
 </head>
@@ -492,11 +623,14 @@
           <polygon points="60,10 85,16.7 103.3,35 110,60 103.3,85 85,103.3 60,110 35,103.3 16.7,85 10,60 16.7,35 35,16.7"
                    stroke="#0D2B5B" stroke-width="5" stroke-linejoin="round"/>
           <g stroke="#0D2B5B" stroke-width="5" stroke-linecap="round">
-            <line x1="60" y1="60" x2="60" y2="10"/><line x1="60" y1="60" x2="103.3" y2="35"/>
-            <line x1="60" y1="60" x2="103.3" y2="85"/><line x1="60" y1="60" x2="60" y2="110"/>
-            <line x1="60" y1="60" x2="16.7" y2="85"/><line x1="60" y1="60" x2="16.7" y2="35"/>
+            <line x1="60" y1="60" x2="60" y2="10"/><line x1="60" y1="60" x2="85" y2="16.7"/>
+            <line x1="60" y1="60" x2="103.3" y2="35"/><line x1="60" y1="60" x2="110" y2="60"/>
+            <line x1="60" y1="60" x2="103.3" y2="85"/><line x1="60" y1="60" x2="85" y2="103.3"/>
+            <line x1="60" y1="60" x2="60" y2="110"/><line x1="60" y1="60" x2="35" y2="103.3"/>
+            <line x1="60" y1="60" x2="16.7" y2="85"/><line x1="60" y1="60" x2="10" y2="60"/>
+            <line x1="60" y1="60" x2="16.7" y2="35"/><line x1="60" y1="60" x2="35" y2="16.7"/>
           </g>
-          <circle cx="60" cy="60" r="13" fill="#FFB300"/>
+          <circle cx="60" cy="60" r="14" fill="#D88A18"/>
         </svg>
         <span class="hl">Surya AI Technologies <em>presents</em></span>
       </div>
@@ -504,16 +638,19 @@
     <!-- the mark: Surya AI on the front, flips to the official QuickBill Pro icon -->
     <div class="splash-flip">
     <div class="flip-inner">
+    <!-- the Surya wheel sits straight on the charcoal, cream-spoked like the banner -->
     <svg class="splash-logo front" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4" y="4" width="112" height="112" rx="26" fill="#FFF6E3" stroke="rgba(13,43,91,.14)" stroke-width="1.5"/>
       <polygon points="60,14 82.5,20 99,36.5 105,60 99,83.5 82.5,100 60,106 37.5,100 21,83.5 15,60 21,36.5 37.5,20"
-               stroke="#0D2B5B" stroke-width="5" stroke-linejoin="round"/>
-      <g stroke="#0D2B5B" stroke-width="5" stroke-linecap="round">
-        <line x1="60" y1="60" x2="60" y2="14"/><line x1="60" y1="60" x2="99" y2="36.5"/>
-        <line x1="60" y1="60" x2="99" y2="83.5"/><line x1="60" y1="60" x2="60" y2="106"/>
-        <line x1="60" y1="60" x2="21" y2="83.5"/><line x1="60" y1="60" x2="21" y2="36.5"/>
+               stroke="#EEE2CE" stroke-width="3.5" stroke-linejoin="round"/>
+      <g stroke="#EEE2CE" stroke-width="3.5" stroke-linecap="round">
+        <line x1="60" y1="60" x2="60" y2="14"/><line x1="60" y1="60" x2="82.5" y2="20"/>
+        <line x1="60" y1="60" x2="99" y2="36.5"/><line x1="60" y1="60" x2="105" y2="60"/>
+        <line x1="60" y1="60" x2="99" y2="83.5"/><line x1="60" y1="60" x2="82.5" y2="100"/>
+        <line x1="60" y1="60" x2="60" y2="106"/><line x1="60" y1="60" x2="37.5" y2="100"/>
+        <line x1="60" y1="60" x2="21" y2="83.5"/><line x1="60" y1="60" x2="15" y2="60"/>
+        <line x1="60" y1="60" x2="21" y2="36.5"/><line x1="60" y1="60" x2="37.5" y2="20"/>
       </g>
-      <circle cx="60" cy="60" r="13" fill="#FFB300"/>
+      <circle cx="60" cy="60" r="13" fill="#D88A18"/>
     </svg>
     <!-- official QuickBill Pro mark -->
     <svg class="splash-logo back" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
@@ -701,6 +838,51 @@
     </div>
   </section>
 
+  <!-- SECTION 5a : DELIVER — the paper bill sinks into the phone and
+       re-prints itself as a WhatsApp text bill (scroll-scrubbed) -->
+  <section id="deliver">
+    <div class="d-pin">
+      <header>
+        <span class="eyebrow reveal" style="justify-content:center">The last mile</span>
+        <h2 class="reveal">Paper bill in.<br/><span class="accent">WhatsApp</span> bill out.</h2>
+        <p class="lede reveal">The moment you tap share, the physical bill dissolves into the phone — and re-prints itself as a message in your customer's chat.</p>
+      </header>
+      <div class="d-stage" aria-hidden="true">
+        <div class="d-bill">
+          <div class="b-head">SHREE SAGAR TIFFIN ROOM<span class="b-sub">Bill #214 · Table 4</span></div>
+          <hr/>
+          <div class="b-row"><span>Masala Dosa ×2</span><span>160.00</span></div>
+          <div class="b-row"><span>Filter Coffee ×1</span><span>30.00</span></div>
+          <div class="b-row"><span>CGST + SGST @ 5%</span><span>9.50</span></div>
+          <hr/>
+          <div class="b-row b-total"><span>TOTAL</span><b>₹199.50</b></div>
+        </div>
+        <div class="d-phone">
+          <div class="d-screen">
+            <div class="d-wa-head">
+              <span class="d-ava">S</span>
+              <span class="d-who"><b>Shree Sagar Tiffin Room</b><i>business account</i></span>
+            </div>
+            <div class="d-chat">
+              <span class="d-day">TODAY</span>
+              <div class="d-msg">
+                <b>SHREE SAGAR TIFFIN ROOM</b>
+                <span class="d-line dim">Bill #214 · Table 4 · 1:42 PM</span>
+                <span class="d-line">Masala Dosa ×2 ······ 160.00</span>
+                <span class="d-line">Filter Coffee ×1 ····· 30.00</span>
+                <span class="d-line">CGST 4.75 · SGST 4.75</span>
+                <span class="d-sum">TOTAL ₹199.50</span>
+                <span class="d-line dim">GST PAID · via QuickBill Pro</span>
+                <span class="d-meta">1:42 PM <i class="d-ticks">✓✓</i></span>
+              </div>
+            </div>
+          </div>
+          <div class="d-scan"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- SECTION 5b : GST MACHINE — products in, tax split out -->
   <section id="machine">
     <div class="container">
@@ -750,6 +932,19 @@
     </div>
   </section>
 
+  <!-- THE BILL'S JOURNEY — a paper bill drops out of the phone at the
+       architecture section, flows down the five layers, rests on the orbit
+       sun, then tucks in behind the GST receipt (fixed; script-driven) -->
+  <div id="journey-bill" aria-hidden="true">
+    <div class="b-head">SHREE SAGAR TIFFIN ROOM</div>
+    <hr/>
+    <div class="b-row"><span>Masala Dosa ×2</span><span>160.00</span></div>
+    <div class="b-row"><span>Filter Coffee ×1</span><span>30.00</span></div>
+    <div class="b-row"><span>GST @ 5%</span><span>9.50</span></div>
+    <hr/>
+    <div class="b-row b-total"><span>TOTAL</span><b>₹199.50</b></div>
+  </div>
+
 </main>
 
 <!-- SECTION 9 : GLASS COMMAND CENTER — hologram metrics, appears near the footer -->
@@ -777,6 +972,16 @@
 (function(){
 "use strict";
 gsap.registerPlugin(ScrollTrigger);
+/* a reload always restarts the story from the top — the sunrise splash
+   and the phone's whole journey assume a hero start. The browser may
+   restore the old position after this script runs, so reset again on
+   load (the splash overlay hides the jump). */
+if('scrollRestoration' in history) history.scrollRestoration = 'manual';
+window.scrollTo(0, 0);
+window.addEventListener('load', ()=>{
+  window.scrollTo(0, 0);
+  setTimeout(()=> window.scrollTo(0, 0), 60);
+});
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ============================================================
@@ -935,8 +1140,8 @@ scene.add(phone);
 
 /* ---------- finale pitch — the phone rises again in LANDSCAPE and
    handwrites the pitch on its own screen, line by line ---------- */
-/* handwriting state — w: write progress, a: ink alpha, u: underline */
-const pitchState = {w1:0, a1:1, w2:0, u:0};
+/* handwriting state — w1: write progress, u: underline */
+const pitchState = {w1:0, u:0};
 if(document.fonts && document.fonts.load) document.fonts.load('700 104px Caveat').catch(()=>{});
 
 /* the screen canvas is portrait (512×1024) — pitch text is drawn inside a
@@ -974,16 +1179,14 @@ function drawPitch(){
   const g = sx.createRadialGradient(512,256,120,512,256,560);
   g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(13,43,91,.06)');
   sx.fillStyle = g; sx.fillRect(0,0,1024,512);
-  pitchLines(['Make your business','easier at billing'], ['#0D2B5B','#0D2B5B'], pitchState.w1, pitchState.a1, 196, 150);
-  if(pitchState.a1 < .05){
-    pitchLines(['Switch to','QuickBill Pro now'], ['#0D2B5B','#1a73e8'], pitchState.w2, 1, 196, 150);
-    if(pitchState.u > 0){
-      sx.font = '700 104px Caveat, cursive';
-      const w = sx.measureText('QuickBill Pro now').width;
-      const x0 = (1024-w)/2, y = 196+150+26;
-      sx.strokeStyle = '#ffb300'; sx.lineWidth = 8; sx.lineCap = 'round';
-      sx.beginPath(); sx.moveTo(x0, y); sx.lineTo(x0 + w*pitchState.u, y); sx.stroke();
-    }
+  pitchLines(['Switch to','QuickBill Pro','for smarter business.'],
+             ['#0D2B5B','#1a73e8','#0D2B5B'], pitchState.w1, 1, 140, 150);
+  if(pitchState.u > 0){ /* gold underline beneath the brand name */
+    sx.font = '700 104px Caveat, cursive';
+    const w = sx.measureText('QuickBill Pro').width;
+    const x0 = (1024-w)/2, y = 140+150+24;
+    sx.strokeStyle = '#ffb300'; sx.lineWidth = 8; sx.lineCap = 'round';
+    sx.beginPath(); sx.moveTo(x0, y); sx.lineTo(x0 + w*pitchState.u, y); sx.stroke();
   }
   sx.restore();
 }
@@ -1298,7 +1501,34 @@ function drawFinal(t){
   sx.fillText('or book a demo below', 256, 700);
   sx.textAlign='left';
 }
-const sectionScreens = {welcome:drawWelcome, arch:drawArch, tools:drawTools, gst:drawGst, machine:drawMachine, impact:drawImpact, final:drawFinal, pitch:drawPitch};
+function drawSun(t){
+  /* the orbit's sun, captured inside the phone — same palette and
+     breathing as the DOM `.node.brain` it replaces at #tools */
+  screenTitle('ONE CONNECTED SUITE');
+  const cx=256, cy=512;
+  const pulse = Math.sin(t*.0011)*.5+.5;
+  const R = 188 + pulse*10;
+  let g = sx.createRadialGradient(cx,cy,R*.2, cx,cy,R*2.4);
+  g.addColorStop(0,'rgba(255,196,80,'+(.50+.18*pulse).toFixed(3)+')');
+  g.addColorStop(.5,'rgba(255,165,55,.22)');
+  g.addColorStop(1,'rgba(255,150,45,0)');
+  sx.fillStyle=g; sx.beginPath(); sx.arc(cx,cy,R*2.4,0,7); sx.fill();
+  g = sx.createRadialGradient(cx, cy-R*.16, R*.08, cx, cy, R);
+  g.addColorStop(0,'#FFFDF2'); g.addColorStop(.26,'#FFEDA6');
+  g.addColorStop(.54,'#FFC94D'); g.addColorStop(.8,'#FF9D33');
+  g.addColorStop(1,'rgba(255,150,45,0)');
+  sx.fillStyle=g; sx.beginPath(); sx.arc(cx,cy,R,0,7); sx.fill();
+  sx.fillStyle='#3A2102'; sx.font='700 46px system-ui'; sx.textAlign='center';
+  sx.fillText('QuickBill', cx, cy+6);
+  sx.fillStyle='#6B3D08'; sx.font='600 19px ui-monospace, monospace';
+  if('letterSpacing' in sx) sx.letterSpacing='6px';
+  sx.fillText('PRO', cx, cy+48);
+  if('letterSpacing' in sx) sx.letterSpacing='0px';
+  sx.fillStyle='#5A6B8C'; sx.font='400 17px system-ui';
+  sx.fillText('every module · one core', cx, 930);
+  sx.textAlign='left';
+}
+const sectionScreens = {welcome:drawWelcome, arch:drawArch, tools:drawTools, sun:drawSun, gst:drawGst, machine:drawMachine, impact:drawImpact, final:drawFinal, pitch:drawPitch};
 
 function drawScreen(t){
   const W=512,H=1024;
@@ -1511,6 +1741,8 @@ if(reduced){
     .fromTo('.splash-name-surya span', {y:36, scale:.94}, {opacity:1, y:0, scale:1, duration:.9, stagger:.16, ease:'power3.out'}, 3.5)
     .to('.splash-name-surya .ai-word', {backgroundPosition:'0% 0', duration:1, ease:'power2.inOut'}, 4.3)
     /* ---- stage 2 : the mark flips — Surya AI hands the stage to QuickBill Pro ---- */
+    /* the brand charcoal lifts to daylight as QuickBill takes the stage */
+    .to('#splash', {backgroundColor:'#FFFFFF', duration:.9, ease:'sine.inOut'}, 6.1)
     /* up top, the credit takes over and the gold highlighter sweeps across it */
     .to('.splash-eyebrow', {opacity:0, y:-8, duration:.5, ease:'power2.in'}, 5.7)
     .fromTo('.splash-presents', {y:10}, {opacity:1, y:0, duration:.7, ease:'power3.out'}, 6.0)
@@ -1554,6 +1786,9 @@ ScrollTrigger.create({
    setMode is called every frame from the render loop, so pendingMode
    keeps re-entrant calls from killing an in-flight transition */
 const spin = {v:0};
+/* user-driven 180° flips — pointerdown on the phone bumps target by π,
+   the render loop adds v on top of the scroll pose */
+const flip = {v:0, target:0};
 let pendingMode = null;
 function setMode(mode){
   if(screenState.mode === mode || pendingMode === mode) return;
@@ -1601,11 +1836,88 @@ ScrollTrigger.create({
     proxy.scale = gsap.utils.interpolate(heroBaseScale(), .92, p);
   }
 });
-/* Section 3+: phone dissolves into the diagrams */
+/* Section 3+ (reduced motion only): phone dissolves into the diagrams.
+   Otherwise the stack ride below carries it down the layers instead. */
 ScrollTrigger.create({
   trigger:'#arch', start:'top 95%', end:'top 35%', scrub:1,
-  onUpdate(self){ if(isMobile()) return; proxy.glOpacity = 1 - self.progress; }
+  onUpdate(self){ if(isMobile() || !reduced) return; proxy.glOpacity = 1 - self.progress; }
 });
+/* Desktop: the phone falls out of its story stand, rides DOWN the
+   architecture stack beside the five layers, then carries on to the
+   tools orbit and parks dead-centre — the sun burning on its screen —
+   until the GST receipt nears and the paper bill ships out. */
+(function(){
+  const stack = document.querySelector('#arch .stack');
+  const orbit = document.getElementById('orbit');
+  if(!stack || !orbit) return;
+  let active = false;
+  gsap.ticker.add(()=>{
+    if(isMobile() || reduced || finaleActive) return;
+    const vh = window.innerHeight, vw = window.innerWidth;
+    const sc = window.scrollY + vh*.52;
+    const sr = stack.getBoundingClientRect();
+    const or = orbit.getBoundingClientRect();
+    const sTop = sr.top + window.scrollY, sBot = sTop + sr.height;
+    const oCy  = or.top + or.height/2 + window.scrollY;  /* orbit centre, doc */
+    const exit = oCy + vh*.9;                 /* the orbit has scrolled away */
+    const lead = vh*.6;                       /* story stand → stack run */
+    if(sc < sTop - lead || sc > exit){
+      /* below the orbit the phone stays away until the finale — enforced
+         every frame so even an instant jump down the page can't skip it */
+      if(sc > exit) proxy.glOpacity = 0;
+      if(active){ active = false;
+        if(sc < sTop){ /* back above: the mid-page story pose */
+          proxy.x = -2.6; proxy.y = 0; proxy.ry = .48; proxy.rz = 0;
+          proxy.scale = .92; proxy.glOpacity = 1; setMode('chat');
+        }
+      }
+      return;
+    }
+    active = true;
+    const wh = visWorldH(), mix = gsap.utils.interpolate;
+    const toX = px => (px - vw/2)/vh * wh;    /* px → world units */
+    const toY = px => -(px - vh/2)/vh * wh;
+    const laneX = Math.min(vw - 190, sr.right + 150);          /* beside the stack */
+    const cy = Math.max(sr.top + 130, Math.min(sr.bottom - 170, vh*.52));
+    const rideS = .46*wh/PH;
+    const parkS = (Math.min(or.height*.74, vh*.62)/vh)*wh/PH;  /* fits the orbit */
+    const oCx = or.left + or.width/2, oCyVp = oCy - window.scrollY;
+    if(sc < sTop){                            /* falls in from the story stand */
+      const t = (sc - (sTop - lead))/lead, e = t*t*(3-2*t);
+      proxy.x = mix(-2.6, toX(laneX), e);
+      proxy.y = mix(0, toY(cy), e);
+      proxy.scale = mix(.92, rideS, e);
+      proxy.ry = mix(.48, -.18, e);
+      proxy.rz = Math.sin(e*Math.PI)*-.08;    /* a little tip as it falls */
+      setMode('chat');
+    }else if(sc <= sBot){                     /* rides down beside the layers */
+      proxy.x = toX(laneX);
+      proxy.y = toY(cy);
+      proxy.scale = rideS;
+      proxy.ry = -.18 + Math.sin(sc*.004)*.1;
+      proxy.rz = 0;
+      setMode('chat');
+    }else if(sc < oCy){                       /* glides to the orbit's heart */
+      const t = (sc - sBot)/Math.max(1, oCy - sBot), e = t*t*(3-2*t);
+      proxy.x = mix(toX(laneX), toX(oCx), e);
+      proxy.y = mix(toY(cy), toY(oCyVp), e);
+      proxy.scale = mix(rideS, parkS, e);
+      proxy.ry = mix(-.18, 0, e);
+      proxy.rz = 0;
+      setMode(e < .5 ? 'chat' : 'sun');       /* the sun moves in mid-flight */
+    }else{                                    /* parked: the suite's core */
+      proxy.x = toX(oCx);
+      proxy.y = toY(oCyVp);
+      proxy.scale = parkS;
+      proxy.ry = Math.sin(sc*.002)*.06;
+      proxy.rz = 0;
+      setMode('sun');
+    }
+    /* the phone stays put while the bill ships out of it — it only
+       fades once the orbit itself scrolls away overhead */
+    proxy.glOpacity = 1 - Math.max(0, Math.min(1, (sc - (oCy + vh*.5))/(vh*.35)));
+  });
+})();
 /* Final: the phone takes a bow — returns to centre, flips and plummets —
    then rises again ROTATED TO LANDSCAPE and handwrites the pitch on its
    own screen, line by line, before bowing out */
@@ -1617,13 +1929,18 @@ function pitchFitScale(){
 }
 function buildFinale(){
   const pitchScale = pitchFitScale();
+  /* the pitch rests a touch higher so it clears the headline */
+  const lift = isMobile() ? .8 : .5;
   return gsap.timeline({paused:true,
     onStart(){
       proxy.rx = 0; proxy.rz = 0;
-      /* unwind the mobile barrel-flips to the nearest upright turn */
+      /* fold any user flip into the pose, then unwind the
+         mobile barrel-flips to the nearest upright turn */
+      gsap.killTweensOf(flip);
+      proxy.ry += flip.v; flip.v = flip.target = 0;
       proxy.ry = proxy.ry % (Math.PI*2);
       if(proxy.ry > Math.PI) proxy.ry -= Math.PI*2;
-      pitchState.w1 = 0; pitchState.a1 = 1; pitchState.w2 = 0; pitchState.u = 0;
+      pitchState.w1 = 0; pitchState.u = 0;
     }})
     /* phone returns to centre stage */
     .to(proxy, {x:0, y:.9, scale:.8, glOpacity:1, duration:.7, ease:'power2.out'}, 0)
@@ -1632,22 +1949,21 @@ function buildFinale(){
     .to(proxy, {rx:-Math.PI*2.5, duration:1.2, ease:'power2.in'}, .95)
     .to(proxy, {y:-9, duration:1.2, ease:'power3.in'}, .95)
     .to(proxy, {glOpacity:0, duration:.25}, 1.85)
-    /* off-screen costume change: snap upright and load the pitch screen */
+    /* off-screen costume change — AFTER the flip/fall tweens end at 2.15,
+       so they can't overwrite the snap — upright + pitch screen loaded */
     .add(()=>{
       phone.rotation.x = 0; phone.rotation.y = 0; phone.rotation.z = 0;
       proxy.rx = 0; proxy.ry = 0;
       setMode('pitch');
-    }, 2.05)
-    .set(proxy, {scale:pitchScale*.86}, 2.05)
+    }, 2.2)
+    .set(proxy, {scale:pitchScale*.86}, 2.2)
     /* ...and the phone rises again — turning sideways as it comes up */
-    .to(proxy, {y:1.55, rz:Math.PI/2, scale:pitchScale, glOpacity:1, duration:1.1, ease:'power3.out'}, 2.15)
-    /* handwriting — line one, then the switch pitch */
-    .fromTo(pitchState, {w1:0}, {w1:1, duration:2.4, ease:'none'}, 3.1)
-    .to(pitchState, {a1:0, duration:.45, ease:'power1.in'}, 6.2)
-    .fromTo(pitchState, {w2:0}, {w2:1, duration:2.1, ease:'none'}, 6.7)
-    .fromTo(pitchState, {u:0}, {u:1, duration:.55, ease:'power2.out'}, 8.85)
-    /* hold, then the phone bows out upward */
-    .to(proxy, {glOpacity:0, y:3.4, duration:.95, ease:'power2.in'}, 10.6);
+    .to(proxy, {y:1.55+lift, rz:Math.PI/2, scale:pitchScale, glOpacity:1, duration:1.1, ease:'power3.out'}, 2.3)
+    /* handwriting — the pitch writes itself line by line */
+    .fromTo(pitchState, {w1:0}, {w1:1, duration:3.0, ease:'none'}, 3.3)
+    .fromTo(pitchState, {u:0}, {u:1, duration:.55, ease:'power2.out'}, 6.5)
+    /* ...and the phone settles there, gently floating, pitch on display */
+    .to(proxy, {y:1.5+lift, duration:.8, ease:'sine.inOut'}, 6.5);
 }
 ScrollTrigger.create({
   /* keyed to the section's BOTTOM — the finale only plays once the end
@@ -1656,10 +1972,11 @@ ScrollTrigger.create({
   onEnter(){
     finaleActive = true;
     if(reduced){ /* static finale: the landscape phone with the written pitch */
-      proxy.x = 0; proxy.y = 1.55; proxy.rx = 0; proxy.ry = 0; proxy.rz = Math.PI/2;
+      gsap.killTweensOf(flip); flip.v = flip.target = 0;
+      proxy.x = 0; proxy.y = 1.55 + (isMobile() ? .8 : .5); proxy.rx = 0; proxy.ry = 0; proxy.rz = Math.PI/2;
       proxy.scale = pitchFitScale(); proxy.glOpacity = 1;
       phone.rotation.set(0, 0, Math.PI/2);
-      pitchState.w1 = 0; pitchState.a1 = 0; pitchState.w2 = 1; pitchState.u = 1;
+      pitchState.w1 = 1; pitchState.u = 1;
       screenState.mode = 'pitch'; screenState.power = 1;
       return;
     }
@@ -1746,6 +2063,99 @@ document.querySelectorAll('[data-count]').forEach(el=>{
     trigger:'footer', start:'top 98%',
     onEnter(){ show.play(); },
     onLeaveBack(){ show.reverse(); }
+  });
+})();
+
+/* ============================================================
+   THE BILL'S JOURNEY — the phone (which rode the stack and parked
+   at the orbit's centre, sun on screen) dissolves as the GST
+   receipt nears; the paper bill ships out of it, flies to the
+   receipt and tucks in behind. Driven per-frame from live rects.
+============================================================ */
+(function(){
+  const bill = document.getElementById('journey-bill');
+  if(!bill) return;
+  const orbit   = document.getElementById('orbit');
+  const sun     = document.querySelector('#tools .node.brain');
+  const receipt = document.querySelector('#gst .receipt');
+  if(reduced || !orbit || !receipt){ bill.style.display='none'; return; }
+  /* the DOM sun retires — it burns on the phone's screen instead */
+  if(sun) sun.style.visibility = 'hidden';
+  gsap.set(bill, {xPercent:-50, yPercent:-50, transformOrigin:'50% 50%'});
+  const clamp = gsap.utils.clamp, mix = gsap.utils.interpolate;
+  const smooth = t => t*t*(3-2*t);
+  gsap.ticker.add(()=>{
+    const vh = window.innerHeight, vw = window.innerWidth;
+    const sc = window.scrollY + vh*.52;                 /* the journey cursor */
+    const or = orbit.getBoundingClientRect();
+    const rr = receipt.getBoundingClientRect();
+    const oX = or.left + or.width/2,  oY = or.top + or.height/2 + window.scrollY;
+    const rX = rr.left + rr.width/2,  rY = rr.top + rr.height/2 + window.scrollY;
+    const hand = rY - vh*.55;             /* the parked phone dissolves here */
+    if(sc < hand || sc > rY){ gsap.set(bill,{opacity:0}); return; }
+    /* ships out of the dissolving phone at the orbit's centre,
+       flies to the receipt, grows to its size, tucks in behind */
+    const t = smooth(clamp(0, 1, (sc - hand) / Math.max(1, rY - hand)));
+    let x = mix(oX, rX, t);
+    let y = mix(oY, rY - 14, t);
+    const rot = mix(5, -1.6, t);
+    const sca = mix(.55, rr.width/Math.max(1, bill.offsetWidth)*.8, t);
+    const op  = Math.min(clamp(0, 1, (sc - hand)/(vh*.1)),
+                         1 - smooth(clamp(0, 1, (t - .82)/.18)));
+    x = clamp(70, vw - 70, x);
+    gsap.set(bill, {x, y: y - window.scrollY, rotation:rot, scale:sca, opacity:op});
+  });
+})();
+
+/* ============================================================
+   DELIVER — Section 5a. The paper bill sinks slowly into the
+   phone's top edge; whatever the edge consumes re-prints in
+   sync inside the chat as a WhatsApp text bill.
+============================================================ */
+(function(){
+  const sec = document.getElementById('deliver');
+  if(!sec) return;
+  const dBill = sec.querySelector('.d-bill');
+  const dPhone= sec.querySelector('.d-phone');
+  const dMsg  = sec.querySelector('.d-msg');
+  const dScan = sec.querySelector('.d-scan');
+  const dMeta = sec.querySelector('.d-meta');
+  const dTicks= sec.querySelector('.d-ticks');
+  const dHead = sec.querySelector('header');
+  if(reduced){ dBill.style.display = 'none'; dTicks.classList.add('read'); return; }  /* static: the finished chat */
+  gsap.set(dMsg,  {clipPath:'inset(0 0 100% 0)'});
+  gsap.set(dMeta, {opacity:0});
+  ScrollTrigger.create({
+    trigger:sec, start:'top top', end:'bottom bottom', scrub:.6,
+    onUpdate(self){
+      const p = self.progress;
+      const bh = dBill.offsetHeight;
+      /* the headline says its piece, then clears the stage for the bill */
+      const hide = gsap.utils.clamp(0, 1, (p - .1)/.14);
+      gsap.set(dHead, {opacity:1 - hide, y:-30*hide});
+      /* descent: hangs above the phone, then sinks until fully consumed */
+      const t = gsap.utils.clamp(0, 1, (p - .2)/.52);
+      const e = t*t*(3-2*t);
+      const ty0 = -(bh + window.innerHeight*.16);
+      const ty = ty0 * (1 - e);                          /* ty 0 → top edge reached */
+      const eaten = gsap.utils.clamp(0, bh, ty + bh);    /* px consumed by the edge */
+      const conv = eaten/bh;                             /* conversion fraction */
+      gsap.set(dBill, {
+        y:ty, opacity:gsap.utils.clamp(0,1,(p-.18)/.07),
+        rotation:(1-e)*2.2*Math.sin(p*12),
+        clipPath:`inset(-20px -20px ${eaten - 12}px -20px)` /* the eaten part vanishes (-12 keeps the torn edge) */
+      });
+      /* the WhatsApp bill prints line-by-line at the same rate */
+      gsap.set(dMsg, {clipPath:`inset(0 0 ${(1-conv)*100}% 0)`});
+      gsap.set(dScan, {opacity: conv > 0 && conv < 1 ? .45 + .55*Math.sin(conv*Math.PI) : 0});
+      /* delivered: the bubble pops, grey ticks land — and only once the
+         bill is fully inside do they flick to WhatsApp blue (read) */
+      const pop = gsap.utils.clamp(0, 1, (p - .74)/.1);
+      gsap.set(dMsg,  {scale:1 + .04*Math.sin(pop*Math.PI), transformOrigin:'80% 100%'});
+      gsap.set(dMeta, {opacity:pop});
+      dTicks.classList.toggle('read', conv >= 1 && p > .88);
+      gsap.set(dPhone,{y:(1-Math.min(1,p*4))*24});       /* phone eases up to meet it */
+    }
   });
 })();
 
@@ -2026,21 +2436,90 @@ document.querySelectorAll('[data-count]').forEach(el=>{
 const clock = new THREE.Clock();
 const lerp = (a,b,t)=>a+(b-a)*t;
 let mouseX = 0, mouseY = 0;
+
+/* tap / click the phone to flip it 180° — front face ⇄ the glowing ₹ back */
+const ray = new THREE.Raycaster();
+const rayNDC = new THREE.Vector2();
+function phoneHit(e){
+  if(!introSettled || finaleActive || proxy.glOpacity < .15) return false;
+  if(e.target && e.target.closest && e.target.closest('a,button,input,textarea,select,label,#splash')) return false;
+  rayNDC.set(e.clientX/window.innerWidth*2 - 1, -(e.clientY/window.innerHeight)*2 + 1);
+  ray.setFromCamera(rayNDC, camera);
+  return ray.intersectObject(phone, true).length > 0;
+}
+window.addEventListener('pointerdown', e=>{
+  if(!phoneHit(e)) return;
+  flip.target += Math.PI;
+  gsap.to(flip, {v:flip.target, duration:reduced?.01:.9, ease:'power3.inOut'});
+}, {passive:true});
+
 window.addEventListener('pointermove', e=>{
   mouseX = (e.clientX/window.innerWidth - .5);
   mouseY = (e.clientY/window.innerHeight - .5);
+  document.body.style.cursor = phoneHit(e) ? 'pointer' : '';
 }, {passive:true});
 
+const archStack = document.querySelector('#arch .stack');
+const orbitBox = document.getElementById('orbit');
 function tick(){
   requestAnimationFrame(tick);
   const t = performance.now();
+
+  /* mobile: through the architecture section the phone itself falls down
+     the stack from its story stand, rides on to the tools orbit and
+     parks at its centre with the sun on its screen — it stays put while
+     the paper bill ships out, leaving only as the orbit scrolls away.
+     While riding, the slot guide below stands aside */
+  let ridingStack = false;
+  if(isMobile() && !reduced && !finaleActive && archStack && orbitBox){
+    const vh = window.innerHeight;
+    const sr = archStack.getBoundingClientRect();
+    const or = orbitBox.getBoundingClientRect();
+    const sc = window.scrollY + vh*.52;
+    const sTop = sr.top + window.scrollY, sBot = sTop + sr.height;
+    const oCy  = or.top + or.height/2 + window.scrollY;
+    const exit = oCy + vh*.9;
+    const lead = vh*.5;
+    if(sc >= sTop - lead && sc <= exit){
+      ridingStack = true;
+      const wh = visWorldH();
+      const toY = px => -(px - vh/2)/vh * wh;
+      const cy = Math.max(sr.top + 110, Math.min(sr.bottom - 140, vh*.52));
+      const rideS = .38*wh/PH;
+      const parkS = (Math.min(or.height*.6, vh*.5)/vh)*wh/PH;
+      if(sc <= sBot){                                 /* falls down the stack */
+        proxy.x = .3;                                 /* a lane right of centre */
+        proxy.y = toY(cy);
+        proxy.scale = rideS;
+        proxy.ry = Math.sin((sc - sTop)*.002)*.3;
+        if(introSettled) setMode('chat');
+      }else if(sc < oCy){                             /* glides to the orbit's heart */
+        const k = (sc - sBot)/Math.max(1, oCy - sBot), e = k*k*(3-2*k);
+        proxy.x = .3*(1-e);
+        proxy.y = toY(cy + (or.top + or.height/2 - cy)*e);
+        proxy.scale = rideS + (parkS - rideS)*e;
+        proxy.ry = Math.sin((sc - sTop)*.002)*.3*(1-e);
+        if(introSettled) setMode(e < .5 ? 'chat' : 'sun');
+      }else{                                          /* parked: the suite's core */
+        proxy.x = 0;
+        proxy.y = toY(or.top + or.height/2);
+        proxy.scale = parkS;
+        proxy.ry = Math.sin(sc*.002)*.06;
+        if(introSettled) setMode('sun');
+      }
+      proxy.rz = 0; proxy.rx = 0;
+      const inO  = Math.min(1, (sc - (sTop - lead))/(lead*.5));
+      const outO = 1 - Math.max(0, Math.min(1, (sc - (oCy + vh*.5))/(vh*.35)));
+      proxy.glOpacity = Math.min(inO, outO);
+    }
+  }
 
   /* mobile guide: the phone journeys slot → slot through every section,
      all the way to the last scroll. Between slots it barrel-flips a full
      360°, swings out in an alternating S-curve arc, banks into the turn
      and dips in scale — and swaps its screen at the halfway point, while
      its back (with the glowing ₹ emblem) faces the viewer. */
-  if(isMobile() && slots.length && !finaleActive){
+  if(isMobile() && slots.length && !finaleActive && !ridingStack){
     const live = slots.filter(el => el.offsetHeight); /* skip slots hidden on this viewport */
     if(live.length){
       const vh = window.innerHeight;
@@ -2083,7 +2562,7 @@ function tick(){
   if(introSettled){
     phone.position.y = lerp(phone.position.y, proxy.y + (reduced?0:Math.sin(t*.0012)*.07), .06);
   }
-  phone.rotation.y = lerp(phone.rotation.y, proxy.ry + spin.v + (reduced?0:mouseX*.18), .07);
+  phone.rotation.y = lerp(phone.rotation.y, proxy.ry + spin.v + flip.v + (reduced?0:mouseX*.18), .07);
   phone.rotation.x = lerp(phone.rotation.x, proxy.rx + (reduced?0:mouseY*.1), .07);
   if(introSettled) phone.rotation.z = lerp(phone.rotation.z, proxy.rz, .08);
   const s = lerp(phone.scale.x, proxy.scale, .08);
@@ -2121,6 +2600,23 @@ window.addEventListener('resize', ()=>{
   if(window.scrollY < 60){ proxy.x = heroBaseX(); proxy.y = heroBaseY(); proxy.scale = heroBaseScale(); }
   ScrollTrigger.refresh();
 });
+})();
+
+/* CTA buttons — app not live yet, show a launching-soon toast */
+(function(){
+  const toast = document.createElement('div');
+  toast.id = 'launch-toast';
+  toast.setAttribute('role','status');
+  toast.innerHTML = '<span class="dot"></span><span>🚀 <b>QuickBill Pro</b> is launching soon — stay tuned!</span>';
+  document.body.appendChild(toast);
+  let hideTimer;
+  document.querySelectorAll('.cta-row .btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      toast.classList.add('show');
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(()=>toast.classList.remove('show'), 3200);
+    });
+  });
 })();
 </script>
 </body>
