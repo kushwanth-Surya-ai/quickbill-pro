@@ -1676,7 +1676,9 @@ function buildFinale(){
     .to(padProxy, {op:0, y:-1.6, rx:.55, scale:.8, duration:.95, ease:'power2.in'}, 10.4);
 }
 ScrollTrigger.create({
-  trigger:'#final', start:'top 55%',
+  /* keyed to the section's BOTTOM — the finale only plays once the end
+     content is actually on screen, never over the sections above it */
+  trigger:'#final', start:'bottom 110%',
   onEnter(){
     finaleActive = true;
     if(reduced){ /* static finale: just show the written pitch */
@@ -1707,7 +1709,7 @@ ScrollTrigger.create({
     proxy.scale = .92; proxy.glOpacity = 0;
   }
 });
-gsap.to('#stage-glow', {opacity:1, scrollTrigger:{trigger:'#final', start:'top 70%', end:'center center', scrub:1}});
+gsap.to('#stage-glow', {opacity:1, scrollTrigger:{trigger:'#final', start:'bottom 140%', end:'bottom 105%', scrub:1}});
 
 /* generic reveals */
 const mobileStack = isMobile(); /* on mobile the arch stack gets its own falling reveal */
